@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using TweetSharp;
+using CoreTweet;
 
 namespace ProfileImage
 {
@@ -11,9 +11,8 @@ namespace ProfileImage
 	/// </summary>
 	public partial class MainWindow : Window
 	{
-		private OAuthRequestToken requestToken;
-		private string accessToken;
-		private string accessTokenSecret;
+		private OAuth.OAuthSession auth;
+		private Tokens token;
 
 		public MainWindow()
 		{
@@ -22,38 +21,27 @@ namespace ProfileImage
 
 		private void browserOpenButton_Click(object sender, RoutedEventArgs e)
 		{
-			TwitterService service = new TwitterService(consumerKey.Text, consumerSecret.Text);
 			if (consumerKey.Text != string.Empty && consumerSecret.Text != string.Empty)
 			{
-				requestToken = service.GetRequestToken();
-				Process.Start(service.GetAuthenticationUrl(requestToken).ToString());
+				auth = OAuth.Authorize(consumerKey.Text, consumerSecret.Text);
+				Process.Start(auth.AuthorizeUri.AbsoluteUri);
 			}
 			else
 			{
-				MessageBox.Show("CK/CS Error!!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("CK / CS Empty!!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 
 		private void authenticationButton_Click(object sender, RoutedEventArgs e)
 		{
-			TwitterService service = new TwitterService(consumerKey.Text, consumerSecret.Text);
-			OAuthAccessToken access = service.GetAccessToken(requestToken, pinNumber.Text);
-			service.AuthenticateWith(access.Token, access.TokenSecret);
-			accessToken = access.Token;
-			accessTokenSecret = access.TokenSecret;
-
-			TwitterUser user = service.VerifyCredentials(new VerifyCredentialsOptions());
-			screenName.Text = user.ScreenName;
-			profileImage.Text = user.ProfileImageUrlHttps;
-			backImage.Text = user.ProfileBackgroundImageUrlHttps;
-			userLocation.Text = user.Location;
-			userName.Text = user.Name;
+			token = auth.GetTokens(pinNumber.Text);
 		}
 
 		private void imageSourceButton_Click(object sender, RoutedEventArgs e)
 		{
-			OpenFileDialog img = new OpenFileDialog();
+			var img = new OpenFileDialog();
 			img.Title = "Select image file.";
+
 			if (img.ShowDialog() == true)
 			{
 				// https://dev.twitter.com/docs/api/1.1/post/account/update_profile_image
@@ -73,19 +61,7 @@ namespace ProfileImage
 
 		private void imageUploadButton_Click(object sender, RoutedEventArgs e)
 		{
-			TwitterService service = new TwitterService(consumerKey.Text, consumerSecret.Text);
-			service.AuthenticateWith(accessToken, accessTokenSecret);
-
-			var updateOpt = new UpdateProfileImageOptions();
-			updateOpt.ImagePath = imageSource.Text;
-			service.UpdateProfileImage(updateOpt);
-
-			TwitterUser user = service.VerifyCredentials(new VerifyCredentialsOptions());
-			screenName.Text = user.ScreenName;
-			profileImage.Text = user.ProfileImageUrlHttps;
-			backImage.Text = user.ProfileBackgroundImageUrlHttps;
-			userLocation.Text = user.Location;
-			userName.Text = user.Name;
+			token.Account.UpdateProfileImage(image => new FileInfo(imageSource.Text));
 		}
 	}
 }
